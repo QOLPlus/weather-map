@@ -1,0 +1,12 @@
+generated: "2020-04-18"
+geomap:
+  - name: 시/도
+    code: 4200000000
+    children:
+      - name: 구/군
+        code: 4215000000
+        children:
+          - name: 동
+            code: 4215061500
+          - name: 동2
+            code: 4215034000

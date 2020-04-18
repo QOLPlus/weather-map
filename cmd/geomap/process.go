@@ -20,15 +20,6 @@ func (p ParsedPair) String() string {
 	return fmt.Sprintf("%s : %s", p.Name, p.Code)
 }
 
-// SI-DO = City(시) + Province(도)
-// GU-GUN = District(구) + Country(군)
-// DONG = Neighborhood(동)
-const (
-	sidoType = 0 + iota
-	gugunType
-	dongType
-)
-
 func Process(cmd *cobra.Command, args []string) {
 	for _, sido := range getParsedList([]ParsedPair{}) {
 		fmt.Println(sido.String())
@@ -74,6 +65,15 @@ func eucKrToUtf8(s string) string {
 	_, _ = tr.Write([]byte(s))
 	return buffers.String()
 }
+
+// SI-DO = City(시) + Province(도)
+// GU-GUN = District(구) + Country(군)
+// DONG = Neighborhood(동)
+const (
+	sidoType = 0 + iota
+	gugunType
+	dongType
+)
 
 func createParams(args []ParsedPair) string {
 	switch len(args) {
