@@ -1,5 +1,7 @@
-generated: "2020-04-18"
-geomap:
+generated:
+  at: "2020-04-18"
+  by: "https://github.com/QOLPlus/weather-map"
+data:
   - name: 시/도
     code: 4200000000
     children:
