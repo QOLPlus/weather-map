@@ -1,15 +1,20 @@
 package geomap
 
 import (
-	"bytes"
+	"bufio"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/spf13/cobra"
-	"golang.org/x/text/encoding/korean"
-	"golang.org/x/text/transform"
+	"gopkg.in/yaml.v2"
 	"net/http"
+	"os"
+	"time"
+
+	"github.com/QOLPlus/weather-map/utils"
 )
 
+const fileName = "geomap.yaml"
+const repositoryUrl = "https://github.com/QOLPlus/weather-map"
 const api = "https://www.weather.go.kr/weather/lifenindustry/sevice_rss.jsp"
 
 type ParsedPair struct {
@@ -20,16 +25,70 @@ func (p ParsedPair) String() string {
 	return fmt.Sprintf("%s : %s", p.Name, p.Code)
 }
 
-func Process(cmd *cobra.Command, args []string) {
-	for _, sido := range getParsedList([]ParsedPair{}) {
-		fmt.Println(sido.String())
-		for _, gugun := range getParsedList([]ParsedPair{sido}) {
-			fmt.Println("  ", gugun.String())
-			for _, dong := range getParsedList([]ParsedPair{sido, gugun}) {
-				fmt.Println("    ", dong.String())
-			}
-		}
+type GeoMap struct {
+	Generated geoMapGenerated `yaml:"generated"`
+	Data      []geoMapNode    `yaml:"data"`
+}
+type geoMapGenerated struct {
+	At string `yaml:"at"`
+	By string `yaml:"by"`
+}
+type geoMapNode struct {
+	Name     string       `yaml:"name"`
+	Code     string       `yaml:"code"`
+	Children []geoMapNode `yaml:"children"`
+}
+func (gm GeoMap) export() {
+	marshaled, err := yaml.Marshal(&gm)
+	if err != nil {
+		panic(err)
 	}
+
+	file, err := os.Create(fileName)
+	if err != nil {
+		panic(err)
+	}
+	defer func(){ _ = file.Close() }()
+
+	writer := bufio.NewWriter(file)
+	writtenBytes, err := writer.WriteString(string(marshaled))
+	err = writer.Flush()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("geomap %d bytes written!\n", writtenBytes)
+}
+
+func Process(cmd *cobra.Command, args []string) {
+	data := GeoMap{
+		Generated: geoMapGenerated{
+			At: time.Now().Format(time.RFC3339),
+			By: repositoryUrl,
+		},
+	}
+
+	fmt.Printf("\nGenerating geomap started at %s !\n", data.Generated.At)
+
+	for _, sido := range getParsedList([]ParsedPair{}) {
+		sidoNode := geoMapNode{Name: sido.Name, Code: sido.Code}
+
+		for _, gugun := range getParsedList([]ParsedPair{sido}) {
+			gugunNode := geoMapNode{Name: gugun.Name, Code: gugun.Code}
+
+			for _, dong := range getParsedList([]ParsedPair{sido, gugun}) {
+				dongNode := geoMapNode{Name: dong.Name, Code: dong.Code}
+				gugunNode.Children = append(gugunNode.Children, dongNode)
+			}
+
+			sidoNode.Children = append(sidoNode.Children, gugunNode)
+		}
+
+		data.Data = append(data.Data, sidoNode)
+	}
+
+	fmt.Printf("\nGenerating geomap finished at %s !\n", time.Now().Format(time.RFC3339))
+
+	data.export()
 }
 
 func getParsedList(parents []ParsedPair) []ParsedPair {
@@ -50,20 +109,13 @@ func getParsedList(parents []ParsedPair) []ParsedPair {
 			parsedList,
 			ParsedPair{
 				Code: value,
-				Name: eucKrToUtf8(s.Text()),
+				Name: utils.EucKrToUtf8(s.Text()),
 			},
 		)
 	})
 
+	fmt.Print(".")
 	return parsedList
-}
-
-func eucKrToUtf8(s string) string {
-	var buffers bytes.Buffer
-	tr := transform.NewWriter(&buffers, korean.EUCKR.NewDecoder())
-	defer func() { _ = tr.Close() }()
-	_, _ = tr.Write([]byte(s))
-	return buffers.String()
 }
 
 // SI-DO = City(시) + Province(도)
